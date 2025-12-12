@@ -60,7 +60,6 @@ def load_easy_level():
     # reiniciar estado de recolección
     global peaches_eaten, squares, vy, on_ground, level
     peaches_eaten = 0
-    squares = []
     vy = 0
     on_ground = False
 # cargar nivel fácil por defecto
@@ -81,7 +80,6 @@ def load_level_attachment():
     peach.x, peach.y = 520 + 50, 300 - peach.height
     vel = 4
     peaches_eaten = 0
-    squares = []
     vy = 0
     on_ground = False
     level = 2
@@ -105,7 +103,6 @@ def load_level_three():
     peach.y = walls[2].top - peach.height
     vel = 4
     peaches_eaten = 0
-    squares = []
     vy = 0
     on_ground = False
     level = 3
@@ -229,19 +226,30 @@ while running:
     if level == 3 and right_marker:
         pygame.draw.rect(screen, (170, 120, 60), right_marker)
 
-    # dibujar cuadrados ganados (attach behind dragon)
+    draw_dragon()
+
+    # dibujar cuadrados ganados (adjuntos a la izquierda del dragón, visibles)
     for i, sq in enumerate(squares):
         # posicionar junto al dragon (separados hacia la izquierda)
-        off_x = - (i+1) * (sq.width + 4)
-        sq.topleft = (dragon.x + off_x, dragon.y + (dragon.height - sq.height))
-        pygame.draw.rect(screen, (200, 80, 50), sq)
-
-    draw_dragon()
+        off_x = (i+1) * (sq.width + 4)
+        x = dragon.left - off_x
+        y = dragon.bottom - sq.height
+        sq.topleft = (x, y)
+        pygame.draw.rect(screen, CELESTE, sq)
+        # dibujar triángulo encima del cuadrado (como adorno)
+        tri_h = max(6, sq.width // 4)
+        tri_top = sq.top - tri_h
+        tri_points = [
+            (sq.centerx, tri_top),
+            (sq.right, sq.top + tri_h // 2),
+            (sq.left, sq.top + tri_h // 2),
+        ]
+        pygame.draw.polygon(screen, (0, 80, 160), tri_points)
 
     # Comer melocotón: añadir cuadrado y avanzar niveles
     if dragon.colliderect(peach):
-        # añadir un cuadrado al dragon
-        new_sq = pygame.Rect(0, 0, 14, 14)
+        # añadir un cuadrado al dragon (mismo tamaño que el dragón)
+        new_sq = pygame.Rect(0, 0, dragon.width, dragon.height)
         squares.append(new_sq)
 
         pygame.display.update()
