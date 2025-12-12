@@ -80,6 +80,15 @@ def move_collision(rect, dx, vy):
 def draw_dragon():
     global blink, mouth
 
+    # cuadro pequeño detrás del dragón (decoración inicial)
+    back_box = pygame.Rect(dragon.x - 12, dragon.y + dragon.height - 18, 12, 12)
+    pygame.draw.rect(screen, (200, 80, 50), back_box)
+
+    # triángulo pequeño (como una aleta o pico) delante del dragón
+    tri_x = dragon.x + dragon.width
+    tri_y = dragon.y + dragon.height // 2
+    pygame.draw.polygon(screen, (255, 200, 0), [(tri_x, tri_y - 6), (tri_x + 10, tri_y), (tri_x, tri_y + 6)])
+
     pygame.draw.rect(screen, CELESTE, dragon)
 
     # Boca animada
@@ -106,15 +115,17 @@ def load_level(n):
     """Carga configuración de niveles. n=1 (fácil) o n=2 (más difícil)."""
     global walls, dragon, peach, vel, vy, on_ground, JUMP_STRENGTH
     if n == 1:
+        # crear un gran gap al inicio: dos plataformas separadas
         walls = [
-            pygame.Rect(50, 460, 700, 30),   # suelo
-            pygame.Rect(50, 200, 30, 260),   # pared izquierda
-            pygame.Rect(720, 200, 30, 260),  # pared derecha
-            pygame.Rect(300, 340, 200, 20),  # plataforma media
-            pygame.Rect(520, 260, 120, 20),  # plataforma superior
+            pygame.Rect(50, 460, 220, 30),    # suelo izquierdo
+            pygame.Rect(520, 460, 230, 30),   # suelo derecho (gap en el medio)
+            pygame.Rect(140, 380, 120, 20),   # plataforma inicial pequeña donde empieza el dragón
+            pygame.Rect(560, 300, 120, 20),   # plataforma lejana con melocotón
+            pygame.Rect(50, 200, 30, 260),    # pared izquierda
+            pygame.Rect(760, 200, 30, 260),   # pared derecha
         ]
-        dragon.x, dragon.y = 120, 420
-        peach.x, peach.y = 540, 225
+        dragon.x, dragon.y = 160, 350
+        peach.x, peach.y = 590, 268
         vel = 4
         JUMP_STRENGTH = JUMP_STRENGTH
     elif n == 2:
