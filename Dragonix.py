@@ -34,6 +34,22 @@ walls = [
     pygame.Rect(260, 140, 190, 40),
 ]
 
+
+def load_easy_level():
+    """Configura un nivel fácil: suelo amplio y una pequeña plataforma con el melocotón."""
+    global walls, dragon, peach, vel
+    walls = [
+        pygame.Rect(40, 440, 720, 40),   # suelo ancho y visible
+        pygame.Rect(140, 360, 120, 20),  # plataforma inicial
+        pygame.Rect(520, 300, 120, 20),  # plataforma donde aparece el melocotón
+    ]
+    dragon.x, dragon.y = 160, 320
+    peach.x, peach.y = 560, 268
+    vel = 4
+
+# cargar nivel fácil por defecto
+load_easy_level()
+
 # ANIMACIÓN
 blink = 0
 mouth = 0
