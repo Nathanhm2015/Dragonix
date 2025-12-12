@@ -1,5 +1,6 @@
 import pygame
 import sys
+import random
 
 pygame.init()
 
@@ -22,21 +23,25 @@ VERDE = (0, 150, 0)
 dragon = pygame.Rect(120, 420, 40, 40)
 vy = 0
 GRAVITY = 0.5
-JUMP_STRENGTH = 10
+JUMP_STRENGTH = 14
 MAX_FALL = 10
 on_ground = False
 vel = 4
+level = 1
+peaches_eaten = 0
+required_peaches = {1: 2, 2: 3}
+GROWTH = 6
 
 # MELOCOTÓN
 peach = pygame.Rect(540, 225, 35, 35)
 
 # PAREDES DEL NIVEL
 walls = [
-    pygame.Rect(50, 460, 700, 30),   # suelo visible
-    pygame.Rect(50, 200, 30, 260),   # pared izquierda
-    pygame.Rect(720, 200, 30, 260),  # pared derecha
-    pygame.Rect(300, 340, 200, 20),  # plataforma media
-    pygame.Rect(520, 260, 120, 20),  # plataforma superior (melocotón)
+    pygame.Rect(50, 460, 700, 30),   
+    pygame.Rect(50, 200, 30, 260),   
+    pygame.Rect(720, 200, 30, 260),  
+    pygame.Rect(300, 340, 200, 20), 
+    pygame.Rect(520, 260, 120, 20),  
 ]
 
 # ANIMACIÓN
@@ -95,6 +100,58 @@ def draw_dragon():
         pygame.draw.circle(screen, NEGRO, (dragon.x+28, dragon.y+15), 3)
 
 
+def load_level(n):
+    """Carga configuración de niveles. n=1 (fácil) o n=2 (más difícil)."""
+    global walls, dragon, peach, vel, vy, on_ground, JUMP_STRENGTH
+    if n == 1:
+        walls = [
+            pygame.Rect(50, 460, 700, 30),   # suelo
+            pygame.Rect(50, 200, 30, 260),   # pared izquierda
+            pygame.Rect(720, 200, 30, 260),  # pared derecha
+            pygame.Rect(300, 340, 200, 20),  # plataforma media
+            pygame.Rect(520, 260, 120, 20),  # plataforma superior
+        ]
+        dragon.x, dragon.y = 120, 420
+        peach.x, peach.y = 540, 225
+        vel = 4
+        JUMP_STRENGTH = JUMP_STRENGTH
+    elif n == 2:
+        walls = [
+            pygame.Rect(50, 460, 700, 30),
+            pygame.Rect(50, 260, 30, 200),
+            pygame.Rect(720, 260, 30, 200),
+            pygame.Rect(180, 380, 120, 20),  # plataforma baja
+            pygame.Rect(360, 300, 100, 20),  # plataforma media (más estrecha)
+            pygame.Rect(540, 220, 80, 20),   # plataforma alta (más pequeña)
+        ]
+        dragon.x, dragon.y = 80, 420
+        peach.x, peach.y = 560, 190
+        vel = 4
+        # mantener la misma fuerza de salto para más reto
+    vy = 0
+    on_ground = False
+    # reiniciar contador y generar melocotón
+    global peaches_eaten
+    peaches_eaten = 0
+    spawn_peach()
+
+
+def spawn_peach():
+    """Coloca el melocotón sobre una de las plataformas (no en el suelo)."""
+    global peach
+    # plataformas candidatas: anchas y no el suelo (top suficientemente alto)
+    candidates = [w for w in walls if w.width >= 50 and w.top < HEIGHT - 120]
+    if not candidates:
+        # fallback: colocarlo en la posición por defecto
+        peach.x, peach.y = 540, 225
+        return
+    p = random.choice(candidates)
+    # colocar melocotón centrado en parte de la plataforma
+    x = random.randint(p.left + 5, max(p.right - 40, p.left + 5))
+    peach.x = x
+    peach.y = p.top - peach.height
+
+
 running = True
 while running:
     for event in pygame.event.get():
@@ -130,15 +187,47 @@ while running:
 
     draw_dragon()
 
-    # VICTORIA
+    # Comer melocotón: crecer y reaparecer el melocotón
     if dragon.colliderect(peach):
-        screen.fill(NEGRO)
-        font = pygame.font.SysFont(None, 70)
-        t = font.render("¡Ganaste!", True, (255, 255, 255))
-        screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
+        peaches_eaten += 1
+        # aumentar tamaño manteniendo la base (bottom) y la izquierda
+        base_bottom = dragon.bottom
+        base_left = dragon.left
+        dragon.width += GROWTH
+        dragon.height += GROWTH
+        dragon.left = base_left
+        dragon.bottom = base_bottom
+
+        # breve animación / pausa al comer
+        for w in walls:
+            pygame.draw.rect(screen, MARRON, w)
+        draw_dragon()
         pygame.display.update()
-        pygame.time.wait(2000)
-        sys.exit()
+        pygame.time.wait(200)
+
+        spawn_peach()
+
+        # comprobar si alcanzó la meta de melocotones para avanzar
+        if peaches_eaten >= required_peaches.get(level, 1):
+            pygame.time.wait(200)
+            if level == 1:
+                level = 2
+                screen.fill(NEGRO)
+                font2 = pygame.font.SysFont(None, 50)
+                t2 = font2.render("Nivel 2", True, (255, 255, 255))
+                screen.blit(t2, (WIDTH//2 - 70, HEIGHT//2 - 25))
+                pygame.display.update()
+                pygame.time.wait(1000)
+                load_level(2)
+                continue
+            else:
+                screen.fill(NEGRO)
+                font = pygame.font.SysFont(None, 70)
+                t = font.render("¡Ganaste!", True, (255, 255, 255))
+                screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
+                pygame.display.update()
+                pygame.time.wait(1000)
+                sys.exit()
 
     pygame.display.update()
     clock.tick(60)
