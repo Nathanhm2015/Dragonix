@@ -8,6 +8,7 @@ WIDTH, HEIGHT = 800, 500
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 
+
 # COLORES
 AZUL = (80, 110, 255)
 MARRON = (150, 90, 50)
@@ -18,19 +19,24 @@ DURAZNO = (255, 180, 120)
 VERDE = (0, 150, 0)
 
 # DRAGÓN
-dragon = pygame.Rect(140, 220, 40, 40)
+dragon = pygame.Rect(120, 420, 40, 40)
+vy = 0
+GRAVITY = 0.5
+JUMP_STRENGTH = 10
+MAX_FALL = 10
+on_ground = False
 vel = 4
 
 # MELOCOTÓN
-peach = pygame.Rect(520, 140, 35, 35)
+peach = pygame.Rect(540, 225, 35, 35)
 
 # PAREDES DEL NIVEL
 walls = [
-    
-    pygame.Rect(100, 180, 40, 200),
-    pygame.Rect(100, 340, 350, 40),
-    pygame.Rect(410, 180, 40, 200),
-    pygame.Rect(260, 140, 190, 40),
+    pygame.Rect(50, 460, 700, 30),   # suelo visible
+    pygame.Rect(50, 200, 30, 260),   # pared izquierda
+    pygame.Rect(720, 200, 30, 260),  # pared derecha
+    pygame.Rect(300, 340, 200, 20),  # plataforma media
+    pygame.Rect(520, 260, 120, 20),  # plataforma superior (melocotón)
 ]
 
 # ANIMACIÓN
@@ -39,8 +45,8 @@ mouth = 0
 moving = False
 
 
-def move_collision(rect, dx, dy):
-    """Movimiento con colisiones simples"""
+def move_collision(rect, dx, vy):
+    """Movimiento con colisiones simples. Acepta velocidad vertical y devuelve (vy, on_ground)."""
     rect.x += dx
     for w in walls:
         if rect.colliderect(w):
@@ -49,13 +55,19 @@ def move_collision(rect, dx, dy):
             if dx < 0:
                 rect.left = w.right
 
-    rect.y += dy
+    rect.y += int(vy)
+    on_ground = False
     for w in walls:
         if rect.colliderect(w):
-            if dy > 0:
+            if vy > 0:
                 rect.bottom = w.top
-            if dy < 0:
+                vy = 0
+                on_ground = True
+            elif vy < 0:
                 rect.top = w.bottom
+                vy = 0
+
+    return vy, on_ground
 
 
 def draw_dragon():
@@ -92,11 +104,19 @@ while running:
     keys = pygame.key.get_pressed()
 
     dx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * vel
-    dy = (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * vel
 
-    moving = (dx != 0 or dy != 0)
+    # salto si está en suelo
+    if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
+        vy = -JUMP_STRENGTH
 
-    move_collision(dragon, dx, dy)
+    # aplicar gravedad
+    vy += GRAVITY
+    if vy > MAX_FALL:
+        vy = MAX_FALL
+
+    moving = (dx != 0 or int(vy) != 0)
+
+    vy, on_ground = move_collision(dragon, dx, vy)
 
     # DIBUJAR
     screen.fill(AZUL)
