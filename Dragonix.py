@@ -31,6 +31,8 @@ level = 1
 peaches_eaten = 0
 required_peaches = {1: 2, 2: 3}
 GROWTH = 6
+tail = []
+tail_size = 20
 
 # MELOCOTÓN
 peach = pygame.Rect(540, 225, 35, 35)
@@ -118,14 +120,14 @@ def load_level(n):
     elif n == 2:
         walls = [
             pygame.Rect(50, 460, 700, 30),
-            pygame.Rect(50, 260, 30, 200),
-            pygame.Rect(720, 260, 30, 200),
-            pygame.Rect(180, 380, 120, 20),  # plataforma baja
-            pygame.Rect(360, 300, 100, 20),  # plataforma media (más estrecha)
-            pygame.Rect(540, 220, 80, 20),   # plataforma alta (más pequeña)
+            pygame.Rect(50, 300, 30, 160),
+            # gran separación: plataforma izquierda y plataforma con melocotón a la derecha
+            pygame.Rect(140, 420, 200, 20),  # pequeña plataforma inicial
+            pygame.Rect(520, 300, 120, 20),  # plataforma lejana (requiere gran salto)
+            pygame.Rect(720, 260, 30, 240),
         ]
         dragon.x, dragon.y = 80, 420
-        peach.x, peach.y = 560, 190
+        peach.x, peach.y = 560, 270
         vel = 4
         # mantener la misma fuerza de salto para más reto
     vy = 0
@@ -134,6 +136,9 @@ def load_level(n):
     global peaches_eaten
     peaches_eaten = 0
     spawn_peach()
+    # reset tail
+    global tail
+    tail = []
 
 
 def spawn_peach():
@@ -161,6 +166,8 @@ while running:
     keys = pygame.key.get_pressed()
 
     dx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * vel
+    # guardar posición previa para la cola
+    prev_pos = (dragon.x, dragon.y)
 
     # salto si está en suelo
     if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
@@ -175,6 +182,17 @@ while running:
 
     vy, on_ground = move_collision(dragon, dx, vy)
 
+    # si está en nivel 2 y cae fuera de la ventana -> muere (reinicia nivel 2)
+    if level == 2 and dragon.top > HEIGHT:
+        screen.fill(NEGRO)
+        font = pygame.font.SysFont(None, 70)
+        t = font.render("¡Perdiste!", True, (255, 0, 0))
+        screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
+        pygame.display.update()
+        pygame.time.wait(1000)
+        load_level(2)
+        continue
+
     # DIBUJAR
     screen.fill(AZUL)
 
@@ -184,6 +202,16 @@ while running:
     # Melocotón
     pygame.draw.circle(screen, DURAZNO, (peach.x + 18, peach.y + 18), 18)
     pygame.draw.line(screen, VERDE, (peach.x+20, peach.y+5), (peach.x+25, peach.y-8), 4)
+
+    # actualizar cola: insertar la posición previa como segmento
+    if peaches_eaten > 0:
+        tail.insert(0, pygame.Rect(prev_pos[0] - tail_size//2, prev_pos[1], tail_size, tail_size))
+        if len(tail) > peaches_eaten:
+            tail.pop()
+
+    # dibujar cola detrás del dragón
+    for seg in tail:
+        pygame.draw.rect(screen, (0, 80, 160), seg)
 
     draw_dragon()
 
