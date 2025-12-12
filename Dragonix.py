@@ -20,7 +20,17 @@ VERDE = (0, 150, 0)
 
 # DRAGÓN
 dragon = pygame.Rect(140, 220, 40, 40)
+vy = 0
+GRAVITY = 0.4
+JUMP_STRENGTH = 14
+MAX_FALL = 10
+on_ground = False
 vel = 4
+level = 1
+peaches_eaten = 0
+squares = []
+spawn_point = (60, 100)  # posición aproximada del círculo rojo (ajustable)
+right_marker = None
 
 # MELOCOTÓN
 peach = pygame.Rect(520, 140, 35, 35)
@@ -47,8 +57,61 @@ def load_easy_level():
     peach.x, peach.y = 560, 268
     vel = 4
 
+    # reiniciar estado de recolección
+    global peaches_eaten, squares, vy, on_ground, level
+    peaches_eaten = 0
+    squares = []
+    vy = 0
+    on_ground = False
 # cargar nivel fácil por defecto
 load_easy_level()
+
+
+def load_level_attachment():
+    """Nivel tipo 'attachment': paredes altas a los lados, plataforma inicial pequeña, plataforma central y plataforma derecha alta con melocotón."""
+    global walls, dragon, peach, vel, peaches_eaten, squares, vy, on_ground, level
+    walls = [
+        pygame.Rect(10, 60, 30, 440),    # pared izquierda alta
+        pygame.Rect(760, 60, 30, 440),   # pared derecha alta
+        pygame.Rect(80, 420, 160, 20),   # plataforma izquierda (donde empieza)
+        pygame.Rect(300, 360, 140, 20),  # plataforma media
+        pygame.Rect(520, 300, 140, 20),  # plataforma derecha alta (melocotón)
+    ]
+    dragon.x, dragon.y = 100, 380
+    peach.x, peach.y = 520 + 50, 300 - peach.height
+    vel = 4
+    peaches_eaten = 0
+    squares = []
+    vy = 0
+    on_ground = False
+    level = 2
+
+
+def load_level_three():
+    """Nivel 3: diseño con un gran salto que, si se falla, reinicia al jugador en el círculo rojo con un salto fuerte."""
+    global walls, dragon, peach, vel, peaches_eaten, squares, vy, on_ground, level, spawn_point
+    walls = [
+        pygame.Rect(10, 420, 160, 24),    # plataforma izquierda (inicio, cerca del spawn)
+        pygame.Rect(240, 420, 160, 24),   # plataforma central (gap entre left and right)
+        pygame.Rect(480, 320, 160, 20),   # plataforma derecha alta (melocotón)
+        pygame.Rect(760, 60, 30, 440),    # pared derecha alta
+    ]
+    # colocar dragón en la izquierda baja (cerca del círculo rojo)
+    # alinear bottom con la plataforma izquierda
+    dragon.x = 40
+    dragon.bottom = walls[0].top
+    # colocar melocotón sobre la plataforma derecha alta
+    peach.x = walls[2].left + 40
+    peach.y = walls[2].top - peach.height
+    vel = 4
+    peaches_eaten = 0
+    squares = []
+    vy = 0
+    on_ground = False
+    level = 3
+    # marcador cuadrado a la derecha de la plataforma (como en tu boceto)
+    global right_marker
+    right_marker = pygame.Rect(walls[2].right + 10, walls[2].top - 24, 24, 24)
 
 # ANIMACIÓN
 blink = 0
@@ -56,8 +119,8 @@ mouth = 0
 moving = False
 
 
-def move_collision(rect, dx, dy):
-    """Movimiento con colisiones simples"""
+def move_collision(rect, dx, vy):
+    """Movimiento con colisiones simples. Acepta velocidad vertical y devuelve (vy, on_ground)."""
     rect.x += dx
     for w in walls:
         if rect.colliderect(w):
@@ -66,13 +129,19 @@ def move_collision(rect, dx, dy):
             if dx < 0:
                 rect.left = w.right
 
-    rect.y += dy
+    rect.y += int(vy)
+    on_ground = False
     for w in walls:
         if rect.colliderect(w):
-            if dy > 0:
+            if vy > 0:
                 rect.bottom = w.top
-            if dy < 0:
+                vy = 0
+                on_ground = True
+            elif vy < 0:
                 rect.top = w.bottom
+                vy = 0
+
+    return vy, on_ground
 
 
 def draw_dragon():
@@ -109,11 +178,42 @@ while running:
     keys = pygame.key.get_pressed()
 
     dx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * vel
-    dy = (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * vel
 
-    moving = (dx != 0 or dy != 0)
+    # salto (solo si está en el suelo) — salto poco potente
+    if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
+        vy = -JUMP_STRENGTH
 
-    move_collision(dragon, dx, dy)
+    # aplicar gravedad
+    vy += GRAVITY
+    if vy > MAX_FALL:
+        vy = MAX_FALL
+
+    moving = (dx != 0 or int(vy) != 0)
+
+    vy, on_ground = move_collision(dragon, dx, vy)
+
+    # Si cae fuera de la pantalla
+    if dragon.top > HEIGHT:
+        if level == 3:
+            # respawn en el círculo rojo con un salto grande
+            dragon.x, dragon.y = spawn_point
+            vy = -18
+            screen.fill(NEGRO)
+            font = pygame.font.SysFont(None, 50)
+            t = font.render("¡Cuidado! Reiniciando...", True, (255, 255, 255))
+            screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 25))
+            pygame.display.update()
+            pygame.time.wait(400)
+            continue
+        else:
+            # reiniciar el nivel actual
+            if level == 1:
+                load_easy_level()
+            elif level == 2:
+                load_level_attachment()
+            else:
+                load_level_three()
+            continue
 
     # DIBUJAR
     screen.fill(AZUL)
@@ -125,17 +225,43 @@ while running:
     pygame.draw.circle(screen, DURAZNO, (peach.x + 18, peach.y + 18), 18)
     pygame.draw.line(screen, VERDE, (peach.x+20, peach.y+5), (peach.x+25, peach.y-8), 4)
 
+    # dibujar marcador derecho (solo en nivel 3)
+    if level == 3 and right_marker:
+        pygame.draw.rect(screen, (170, 120, 60), right_marker)
+
+    # dibujar cuadrados ganados (attach behind dragon)
+    for i, sq in enumerate(squares):
+        # posicionar junto al dragon (separados hacia la izquierda)
+        off_x = - (i+1) * (sq.width + 4)
+        sq.topleft = (dragon.x + off_x, dragon.y + (dragon.height - sq.height))
+        pygame.draw.rect(screen, (200, 80, 50), sq)
+
     draw_dragon()
 
-    # VICTORIA
+    # Comer melocotón: añadir cuadrado y avanzar niveles
     if dragon.colliderect(peach):
-        screen.fill(NEGRO)
-        font = pygame.font.SysFont(None, 70)
-        t = font.render("¡Ganaste!", True, (255, 255, 255))
-        screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
+        # añadir un cuadrado al dragon
+        new_sq = pygame.Rect(0, 0, 14, 14)
+        squares.append(new_sq)
+
         pygame.display.update()
-        pygame.time.wait(2000)
-        sys.exit()
+        pygame.time.wait(300)
+
+        if level == 1:
+            load_level_attachment()
+            continue
+        elif level == 2:
+            # pasar a nivel 3 (el del círculo rojo)
+            load_level_three()
+            continue
+        else:
+            screen.fill(NEGRO)
+            font = pygame.font.SysFont(None, 70)
+            t = font.render("¡Ganaste!", True, (255, 255, 255))
+            screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
+            pygame.display.update()
+            pygame.time.wait(1500)
+            sys.exit()
 
     pygame.display.update()
     clock.tick(60)
