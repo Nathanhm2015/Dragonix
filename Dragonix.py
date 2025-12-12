@@ -168,6 +168,10 @@ def spawn_peach():
     peach.y = p.top - peach.height
 
 
+# cargar nivel inicial
+load_level(level)
+
+
 running = True
 while running:
     for event in pygame.event.get():
