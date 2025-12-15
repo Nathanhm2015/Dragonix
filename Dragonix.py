@@ -39,6 +39,7 @@ peach = pygame.Rect(520, 140, 35, 35)
 # PAREDES DEL NIVEL
 walls = [
     pygame.Rect(10, 180, 40, 200),
+    
     pygame.Rect(100, 180, 40, 200),
     pygame.Rect(100, 340, 350, 40),
     pygame.Rect(410, 180, 40, 200),
@@ -117,8 +118,8 @@ mouth = 0
 moving = False
 
 
-def move_collision(rect, dx, vy):
-    """Movimiento con colisiones simples. Acepta velocidad vertical y devuelve (vy, on_ground)."""
+def move_collision(rect, dx, dy):
+    """Movimiento con colisiones simples"""
     rect.x += dx
     for w in walls:
         if rect.colliderect(w):
@@ -127,19 +128,13 @@ def move_collision(rect, dx, vy):
             if dx < 0:
                 rect.left = w.right
 
-    rect.y += int(vy)
-    on_ground = False
+    rect.y += dy
     for w in walls:
         if rect.colliderect(w):
-            if vy > 0:
+            if dy > 0:
                 rect.bottom = w.top
-                vy = 0
-                on_ground = True
-            elif vy < 0:
+            if dy < 0:
                 rect.top = w.bottom
-                vy = 0
-
-    return vy, on_ground
 
 
 def draw_dragon():
@@ -187,8 +182,9 @@ while running:
         vy = MAX_FALL
 
     moving = (dx != 0 or int(vy) != 0)
+    dy = (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * vel
 
-    vy, on_ground = move_collision(dragon, dx, vy)
+    moving = (dx != 0 or dy != 0)
 
     # Si cae fuera de la pantalla
     if dragon.top > HEIGHT:
@@ -271,6 +267,17 @@ while running:
             pygame.display.update()
             pygame.time.wait(1500)
             sys.exit()
+    draw_dragon()
+
+    # VICTORIA
+    if dragon.colliderect(peach):
+        screen.fill(NEGRO)
+        font = pygame.font.SysFont(None, 70)
+        t = font.render("¡Ganaste!", True, (255, 255, 255))
+        screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
+        pygame.display.update()
+        pygame.time.wait(2000)
+        sys.exit()
 
     pygame.display.update()
     clock.tick(60)
