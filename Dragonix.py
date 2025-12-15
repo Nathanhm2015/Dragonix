@@ -129,12 +129,16 @@ def move_collision(rect, dx, dy):
                 rect.left = w.right
 
     rect.y += dy
+    landed = False
     for w in walls:
         if rect.colliderect(w):
             if dy > 0:
                 rect.bottom = w.top
+                landed = True
             if dy < 0:
                 rect.top = w.bottom
+
+    return landed
 
 
 def draw_dragon():
@@ -172,7 +176,7 @@ while running:
 
     dx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * vel
 
-    # salto (solo si está en el suelo) — salto poco potente
+    # salto (solo si está en el suelo)
     if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
         vy = -JUMP_STRENGTH
 
@@ -181,10 +185,19 @@ while running:
     if vy > MAX_FALL:
         vy = MAX_FALL
 
-    moving = (dx != 0 or int(vy) != 0)
-    dy = (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * vel
+    # permitir bajar más rápido con flecha abajo
+    if keys[pygame.K_DOWN]:
+        vy += 1
 
-    moving = (dx != 0 or dy != 0)
+    # mover con colisiones; move_collision devuelve si aterrizó en esta iteración
+    landed = move_collision(dragon, int(dx), int(vy))
+    if landed:
+        vy = 0
+        on_ground = True
+    else:
+        on_ground = False
+
+    moving = (dx != 0 or int(vy) != 0)
 
     # Si cae fuera de la pantalla
     if dragon.top > HEIGHT:
