@@ -31,6 +31,7 @@ peaches_eaten = 0
 squares = []
 spawn_point = (60, 100)  # posición aproximada del círculo rojo (ajustable)
 right_marker = None
+# VIDAS
 
 # MELOCOTÓN
 peach = pygame.Rect(520, 140, 35, 35)
@@ -57,12 +58,12 @@ def load_easy_level():
     peach.x, peach.y = 560, 268
     vel = 4
 
-    # reiniciar estado de recolección
+
     global peaches_eaten, squares, vy, on_ground, level
     peaches_eaten = 0
     vy = 0
     on_ground = False
-# cargar nivel fácil por defecto
+
 load_easy_level()
 
 
