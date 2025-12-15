@@ -170,21 +170,38 @@ while running:
 
     keys = pygame.key.get_pressed()
 
-    dx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * vel
+    # Movimiento horizontal con flechas
+    dx = 0
+    if keys[pygame.K_RIGHT]:
+        dx = vel
+    if keys[pygame.K_LEFT]:
+        dx = -vel
 
-    # salto (solo si está en el suelo) — salto poco potente
+    # Salto (solo si está en el suelo)
     if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
         vy = -JUMP_STRENGTH
 
-    # aplicar gravedad
+    # Si se mantiene abajo en el aire, caer más rápido
+    if keys[pygame.K_DOWN] and not on_ground:
+        vy += GRAVITY * 3
+
+    # Aplicar gravedad y limitar velocidad de caída
     vy += GRAVITY
     if vy > MAX_FALL:
         vy = MAX_FALL
 
-    moving = (dx != 0 or int(vy) != 0)
-    dy = (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * vel
+    # Mover con colisiones
+    move_collision(dragon, dx, int(vy))
 
-    moving = (dx != 0 or dy != 0)
+    # Detectar si está en el suelo (apoyado sobre alguna pared)
+    on_ground = False
+    for w in walls:
+        if dragon.bottom == w.top and dragon.right > w.left and dragon.left < w.right:
+            on_ground = True
+            vy = 0
+            break
+
+    moving = (dx != 0 or vy != 0)
 
     # Si cae fuera de la pantalla
     if dragon.top > HEIGHT:
