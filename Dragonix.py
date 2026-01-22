@@ -80,6 +80,9 @@ vel = 4
 level = 1
 peaches_eaten = 0
 squares = []
+# Historial de posiciones para cola tipo 'snake'
+history = []
+HISTORY_SPACING = 6
 spawn_point = (60, 100)  # posición aproximada del círculo rojo (ajustable)
 right_marker = None
 # VIDAS
@@ -292,6 +295,16 @@ while running:
         on_ground = False
 
     moving = (dx != 0 or int(vy) != 0)
+
+    # Guardar el centro del jugador en el historial (para la cola)
+    try:
+        history.append((dragon.centerx, dragon.centery))
+    except Exception:
+        history.append((int(dragon.centerx), int(dragon.centery)))
+    # limitar el tamaño del historial para no crecer indefinidamente
+    max_history = (len(squares) + 5) * HISTORY_SPACING
+    if len(history) > max_history:
+        del history[0: len(history) - max_history]
 
     # Si cae fuera de la pantalla
     if dragon.top > HEIGHT:
