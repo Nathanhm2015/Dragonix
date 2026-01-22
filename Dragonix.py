@@ -341,12 +341,13 @@ while running:
     # dibujar marcador derecho (solo en nivel 3)
     if level == 3 and right_marker:
         pygame.draw.rect(screen, (170, 120, 60), right_marker)
-    # dibujar cuadrados ganados (adjuntos a la izquierda del dragón, a la par)
+    # dibujar cuadrados ganados (adjuntos a la derecha del dragón, alineados a la par)
+    SQUARE_SPACING = 4
     for i, sq in enumerate(squares):
-        off_x = (i + 1) * (sq.width + 4)
-        x = dragon.left - off_x
-        # alinear verticalmente con la base del dragón
-        y = dragon.bottom - sq.height
+        # posicionarlos a la derecha del jugador en línea
+        x = dragon.right + i * (sq.width + SQUARE_SPACING)
+        # alinear verticalmente con la parte superior del dragón
+        y = dragon.top
         sq.topleft = (int(x), int(y))
         pygame.draw.rect(screen, CELESTE, sq)
         # dibujar triángulo encima del cuadrado (como adorno)
