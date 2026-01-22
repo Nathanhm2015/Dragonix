@@ -341,17 +341,13 @@ while running:
     # dibujar marcador derecho (solo en nivel 3)
     if level == 3 and right_marker:
         pygame.draw.rect(screen, (170, 120, 60), right_marker)
-    # dibujar cuadrados ganados (cola tipo 'snake') — posicionarlos según historial
+    # dibujar cuadrados ganados (adjuntos a la izquierda del dragón, a la par)
     for i, sq in enumerate(squares):
-        idx = len(history) - 1 - (i + 1) * HISTORY_SPACING
-        if idx < 0:
-            idx = 0
-        pos = history[idx] if history else (dragon.centerx, dragon.centery)
-        # colocar el cuadrado centrado en la posición histórica del jugador
-        try:
-            sq.center = (int(pos[0]), int(pos[1]))
-        except Exception:
-            sq.topleft = (int(pos[0]), int(pos[1]))
+        off_x = (i + 1) * (sq.width + 4)
+        x = dragon.left - off_x
+        # alinear verticalmente con la base del dragón
+        y = dragon.bottom - sq.height
+        sq.topleft = (int(x), int(y))
         pygame.draw.rect(screen, CELESTE, sq)
         # dibujar triángulo encima del cuadrado (como adorno)
         tri_h = max(6, sq.width // 4)
