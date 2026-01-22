@@ -1,12 +1,63 @@
 import pygame
 import sys
 
+# `SimpleNamespace` está disponible en Python >=3.3; proporcionar fallback por compatibilidad
+try:
+    from types import SimpleNamespace
+except Exception:
+    class SimpleNamespace:
+        def __init__(self, **kwargs):
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
 pygame.init()
+pygame.font.init()
 
 # VENTANA
 WIDTH, HEIGHT = 800, 500
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
+
+DEBUG = True
+
+# Estado de teclado persistente (usarlo como `keyboard.right/left/...`)
+keyboard = SimpleNamespace(right=False, left=False, up=False, down=False, space=False)
+
+def debug_overlay(info_lines):
+    """Dibuja líneas de depuración en la esquina superior izquierda."""
+    global DEBUG
+    if not DEBUG:
+        return
+    try:
+        font = pygame.font.SysFont(None, 20)
+        pad = 6
+        # calcular tamaño del fondo (forzar a str por compatibilidad)
+        widths = []
+        for line in info_lines:
+            try:
+                widths.append(font.size(str(line))[0])
+            except Exception:
+                widths.append(0)
+        if not widths:
+            return
+        w = max(widths) + pad * 2
+        line_h = font.get_linesize() or 18
+        h = (line_h * len(info_lines)) + pad * 2
+        s = pygame.Surface((w, h), pygame.SRCALPHA)
+        s.fill((0, 0, 0, 160))
+        screen.blit(s, (8, 8))
+        y = 8 + pad
+        for line in info_lines:
+            try:
+                t = font.render(str(line), True, (255, 255, 255))
+                screen.blit(t, (8 + pad, y))
+            except Exception:
+                pass
+            y += line_h
+    except Exception:
+        # Si cualquier cosa falla en el overlay, desactivar DEBUG para evitar bucles de error
+        DEBUG = False
+        return
 
 
 # COLORES
@@ -167,17 +218,60 @@ def draw_dragon():
 
 
 running = True
+def show_message(text, duration_ms=500, font_size=50, bg_color=NEGRO, text_color=(255,255,255)):
+    """Muestra un mensaje durante `duration_ms` milisegundos sin usar bloqueos largos."""
+    start = pygame.time.get_ticks()
+    font = pygame.font.SysFont(None, font_size)
+    while pygame.time.get_ticks() - start < duration_ms:
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                return 'quit'
+        screen.fill(bg_color)
+        # Evitar renderizar cadenas vacías (pueden producir superficies 0x0 en algunos backends web)
+        if text:
+            try:
+                t = font.render(text, True, text_color)
+                if t.get_width() > 0 and t.get_height() > 0:
+                    screen.blit(t, (WIDTH//2 - t.get_width()//2, HEIGHT//2 - t.get_height()//2))
+            except Exception:
+                pass
+        pygame.display.update()
+        clock.tick(60)
+    return None
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            sys.exit()
+            running = False
+            break
+        # Actualizar estado del teclado por eventos para compatibilidad con entornos
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_RIGHT:
+                keyboard.right = True
+            if event.key == pygame.K_LEFT:
+                keyboard.left = True
+            if event.key == pygame.K_UP:
+                keyboard.up = True
+            if event.key == pygame.K_DOWN:
+                keyboard.down = True
+            if event.key == pygame.K_SPACE:
+                keyboard.space = True
+        if event.type == pygame.KEYUP:
+            if event.key == pygame.K_RIGHT:
+                keyboard.right = False
+            if event.key == pygame.K_LEFT:
+                keyboard.left = False
+            if event.key == pygame.K_UP:
+                keyboard.up = False
+            if event.key == pygame.K_DOWN:
+                keyboard.down = False
+            if event.key == pygame.K_SPACE:
+                keyboard.space = False
 
-    keys = pygame.key.get_pressed()
-
-    dx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * vel
+    # Calcular dx usando el estado `keyboard` (forzar int para evitar tipos raros)
+    dx = ((1 if keyboard.right else 0) - (1 if keyboard.left else 0)) * vel
 
     # salto (solo si está en el suelo)
-    if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
+    if (keyboard.up or keyboard.space) and on_ground:
         vy = -JUMP_STRENGTH
 
     # aplicar gravedad
@@ -186,7 +280,7 @@ while running:
         vy = MAX_FALL
 
     # permitir bajar más rápido con flecha abajo
-    if keys[pygame.K_DOWN]:
+    if keyboard.down:
         vy += 1
 
     # mover con colisiones; move_collision devuelve si aterrizó en esta iteración
@@ -206,11 +300,10 @@ while running:
             dragon.x, dragon.y = spawn_point
             vy = -18
             screen.fill(NEGRO)
-            font = pygame.font.SysFont(None, 50)
-            t = font.render("¡Cuidado! Reiniciando...", True, (255, 255, 255))
-            screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 25))
-            pygame.display.update()
-            pygame.time.wait(400)
+            res = show_message("¡Cuidado! Reiniciando...", duration_ms=400, font_size=40)
+            if res == 'quit':
+                running = False
+                break
             continue
         else:
             # reiniciar el nivel actual
@@ -235,9 +328,6 @@ while running:
     # dibujar marcador derecho (solo en nivel 3)
     if level == 3 and right_marker:
         pygame.draw.rect(screen, (170, 120, 60), right_marker)
-
-    draw_dragon()
-
     # dibujar cuadrados ganados (adjuntos a la izquierda del dragón, visibles)
     for i, sq in enumerate(squares):
         # posicionar junto al dragon (separados hacia la izquierda)
@@ -256,20 +346,22 @@ while running:
         ]
         pygame.draw.polygon(screen, (0, 80, 160), tri_points)
 
-    # Comer melocotón: añadir cuadrado y avanzar niveles
+    draw_dragon()
+
+    # Comer melocotón: añadir cuadrado y avanzar niveles/ganar
     if dragon.colliderect(peach):
-        # añadir un cuadrado al dragon (mismo tamaño que el dragón)
         new_sq = pygame.Rect(0, 0, dragon.width, dragon.height)
         squares.append(new_sq)
-
         pygame.display.update()
-        pygame.time.wait(300)
+        res = show_message("", duration_ms=300, font_size=1)  # breve pausa no bloqueante
+        if res == 'quit':
+            running = False
+            break
 
         if level == 1:
             load_level_attachment()
             continue
         elif level == 2:
-            # pasar a nivel 3 (el del círculo rojo)
             load_level_three()
             continue
         else:
@@ -278,19 +370,29 @@ while running:
             t = font.render("¡Ganaste!", True, (255, 255, 255))
             screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
             pygame.display.update()
-            pygame.time.wait(1500)
-            sys.exit()
-    draw_dragon()
+            res = show_message("¡Ganaste!", duration_ms=1500, font_size=70)
+            running = False
+            break
 
-    # VICTORIA
-    if dragon.colliderect(peach):
-        screen.fill(NEGRO)
-        font = pygame.font.SysFont(None, 70)
-        t = font.render("¡Ganaste!", True, (255, 255, 255))
-        screen.blit(t, (WIDTH//2 - 150, HEIGHT//2 - 40))
-        pygame.display.update()
-        pygame.time.wait(2000)
-        sys.exit()
-
+    # Capa de depuración (muestra dx, vy, teclas, posición)
+    try:
+        keys_state = "L:{0} R:{1} U:{2} D:{3} S:{4}".format(int(keyboard.left), int(keyboard.right), int(keyboard.up), int(keyboard.down), int(keyboard.space))
+    except Exception:
+        keys_state = "keys: ?"
+    info = [
+        "dx={0}".format(dx),
+        "vy={0:.2f}".format(vy),
+        "pos=({0},{1})".format(dragon.x, dragon.y),
+        "on_ground={0}".format(on_ground),
+        keys_state,
+        "level={0}".format(level),
+    ]
+    # Añadir info de los primeros cuadrados para depuración
+    try:
+        for i, sq in enumerate(squares[:3]):
+            info.append("sq{0}=({1},{2})".format(i, sq.x, sq.y))
+    except Exception:
+        pass
+    debug_overlay(info)
     pygame.display.update()
     clock.tick(60)
