@@ -225,21 +225,59 @@ def show_message(text, duration_ms=500, font_size=50, bg_color=NEGRO, text_color
     """Muestra un mensaje durante `duration_ms` milisegundos sin usar bloqueos largos."""
     start = pygame.time.get_ticks()
     font = pygame.font.SysFont(None, font_size)
-    while pygame.time.get_ticks() - start < duration_ms:
-        for ev in pygame.event.get():
-            if ev.type == pygame.QUIT:
-                return 'quit'
-        screen.fill(bg_color)
-        # Evitar renderizar cadenas vacías (pueden producir superficies 0x0 en algunos backends web)
-        if text:
-            try:
-                t = font.render(text, True, text_color)
-                if t.get_width() > 0 and t.get_height() > 0:
-                    screen.blit(t, (WIDTH//2 - t.get_width()//2, HEIGHT//2 - t.get_height()//2))
-            except Exception:
-                pass
-        pygame.display.update()
-        clock.tick(60)
+    # permitir que la pausa procese eventos de teclado y actualice `keyboard`
+    global keyboard
+    try:
+        while pygame.time.get_ticks() - start < duration_ms:
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT:
+                    # limpiar estado de teclado antes de salir
+                    try:
+                        keyboard.right = keyboard.left = keyboard.up = keyboard.down = keyboard.space = False
+                    except Exception:
+                        pass
+                    return 'quit'
+                # Propagar eventos de teclado al estado persistente para evitar "teclas pegadas"
+                if ev.type == pygame.KEYDOWN:
+                    if ev.key == pygame.K_RIGHT:
+                        keyboard.right = True
+                    if ev.key == pygame.K_LEFT:
+                        keyboard.left = True
+                    if ev.key == pygame.K_UP:
+                        keyboard.up = True
+                    if ev.key == pygame.K_DOWN:
+                        keyboard.down = True
+                    if ev.key == pygame.K_SPACE:
+                        keyboard.space = True
+                if ev.type == pygame.KEYUP:
+                    if ev.key == pygame.K_RIGHT:
+                        keyboard.right = False
+                    if ev.key == pygame.K_LEFT:
+                        keyboard.left = False
+                    if ev.key == pygame.K_UP:
+                        keyboard.up = False
+                    if ev.key == pygame.K_DOWN:
+                        keyboard.down = False
+                    if ev.key == pygame.K_SPACE:
+                        keyboard.space = False
+
+            screen.fill(bg_color)
+            # Evitar renderizar cadenas vacías (pueden producir superficies 0x0 en algunos backends web)
+            if text:
+                try:
+                    t = font.render(text, True, text_color)
+                    if t.get_width() > 0 and t.get_height() > 0:
+                        screen.blit(t, (WIDTH//2 - t.get_width()//2, HEIGHT//2 - t.get_height()//2))
+                except Exception:
+                    pass
+            pygame.display.update()
+            clock.tick(60)
+    finally:
+        # Al salir de la pausa, limpiar el estado de teclas para evitar estados pegados
+        try:
+            keyboard.right = keyboard.left = keyboard.up = keyboard.down = keyboard.space = False
+        except Exception:
+            pass
     return None
 while running:
     for event in pygame.event.get():
@@ -326,6 +364,11 @@ while running:
                 load_level_attachment()
             else:
                 load_level_three()
+            # limpiar estado de teclado para evitar teclas pegadas tras el reinicio
+            try:
+                keyboard.right = keyboard.left = keyboard.up = keyboard.down = keyboard.space = False
+            except Exception:
+                pass
             continue
 
     # DIBUJAR
@@ -341,14 +384,24 @@ while running:
     # dibujar marcador derecho (solo en nivel 3)
     if level == 3 and right_marker:
         pygame.draw.rect(screen, (170, 120, 60), right_marker)
-    # dibujar cuadrados ganados (adjuntos a la derecha del dragón, alineados a la par)
+    # dibujar cuadrados ganados - intentar seguir el `history` (cola tipo 'snake')
     SQUARE_SPACING = 4
     for i, sq in enumerate(squares):
-        # posicionarlos a la derecha del jugador en línea
-        x = dragon.right + i * (sq.width + SQUARE_SPACING)
-        # alinear verticalmente con la parte superior del dragón
-        y = dragon.top
-        sq.topleft = (int(x), int(y))
+        # calcular índice en el historial para este segmento (espaciado por HISTORY_SPACING)
+        hist_index = len(history) - (i + 1) * HISTORY_SPACING
+        if hist_index >= 0:
+            # tomar la posición guardada en el historial
+            pos = history[hist_index]
+            try:
+                sq.center = (int(pos[0]), int(pos[1]))
+            except Exception:
+                sq.center = (int(pos[0]), int(pos[1]))
+        else:
+            # fallback: posicionarlos a la izquierda del jugador (comportamiento previo)
+            x = dragon.left - (i + 1) * (sq.width + SQUARE_SPACING)
+            y = dragon.bottom - sq.height
+            sq.topleft = (int(x), int(y))
+
         pygame.draw.rect(screen, CELESTE, sq)
         # dibujar triángulo encima del cuadrado (como adorno)
         tri_h = max(6, sq.width // 4)
@@ -365,7 +418,13 @@ while running:
     # Comer melocotón: añadir cuadrado y avanzar niveles/ganar
     if dragon.colliderect(peach):
         new_sq = pygame.Rect(0, 0, dragon.width, dragon.height)
-        squares.append(new_sq)
+        # Colocar el nuevo segmento inmediatamente a la izquierda del jugador
+        try:
+            new_sq.topleft = (dragon.left - new_sq.width - 4, dragon.bottom - new_sq.height)
+        except Exception:
+            new_sq.topleft = (int(dragon.left - new_sq.width - 4), int(dragon.bottom - new_sq.height))
+        # Insertar al inicio de la lista para que el nuevo segmento quede junto al jugador
+        squares.insert(0, new_sq)
         pygame.display.update()
         res = show_message("", duration_ms=300, font_size=1)  # breve pausa no bloqueante
         if res == 'quit':
@@ -405,6 +464,7 @@ while running:
     try:
         for i, sq in enumerate(squares[:3]):
             info.append("sq{0}=({1},{2})".format(i, sq.x, sq.y))
+        info.append("dragon.left={0} top={1} bottom={2}".format(dragon.left, dragon.top, dragon.bottom))
     except Exception:
         pass
     debug_overlay(info)
