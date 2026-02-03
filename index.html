@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Fish It</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="ui">
+    <h1>Fish It</h1>
+    <div class="row">
+      <div>Score: <span id="score">0</span></div>
+      <div>Time: <span id="time">60</span>s</div>
+    </div>
+    <div class="controls">
+      <button id="startBtn">Start</button>
+      <button id="pauseBtn">Pause</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+    <div class="hint">Controles: Mueve el ratón/touch para mover el cebo. Click para bajar/subir. Click en pez para enganchar.</div>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <script src="main.js"></script>
+</body>
+</html>
