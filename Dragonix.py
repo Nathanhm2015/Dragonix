@@ -282,6 +282,19 @@ def show_message(text, duration_ms=500, font_size=50, bg_color=NEGRO, text_color
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
+            sys.exit()
+
+    keys = pygame.key.get_pressed()
+
+    # Movimiento horizontal con flechas
+    dx = 0
+    if keys[pygame.K_RIGHT]:
+        dx = vel
+    if keys[pygame.K_LEFT]:
+        dx = -vel
+
+    # Salto (solo si está en el suelo)
+    if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
             running = False
             break
         # Actualizar estado del teclado por eventos para compatibilidad con entornos
@@ -315,34 +328,27 @@ while running:
     if (keyboard.up or keyboard.space) and on_ground:
         vy = -JUMP_STRENGTH
 
-    # aplicar gravedad
+    # Si se mantiene abajo en el aire, caer más rápido
+    if keys[pygame.K_DOWN] and not on_ground:
+        vy += GRAVITY * 3
+
+    # Aplicar gravedad y limitar velocidad de caída
     vy += GRAVITY
     if vy > MAX_FALL:
         vy = MAX_FALL
 
-    # permitir bajar más rápido con flecha abajo
-    if keyboard.down:
-        vy += 1
+    # Mover con colisiones
+    move_collision(dragon, dx, int(vy))
 
-    # mover con colisiones; move_collision devuelve si aterrizó en esta iteración
-    landed = move_collision(dragon, int(dx), int(vy))
-    if landed:
-        vy = 0
-        on_ground = True
-    else:
-        on_ground = False
+    # Detectar si está en el suelo (apoyado sobre alguna pared)
+    on_ground = False
+    for w in walls:
+        if dragon.bottom == w.top and dragon.right > w.left and dragon.left < w.right:
+            on_ground = True
+            vy = 0
+            break
 
-    moving = (dx != 0 or int(vy) != 0)
-
-    # Guardar el centro del jugador en el historial (para la cola)
-    try:
-        history.append((dragon.centerx, dragon.centery))
-    except Exception:
-        history.append((int(dragon.centerx), int(dragon.centery)))
-    # limitar el tamaño del historial para no crecer indefinidamente
-    max_history = (len(squares) + 5) * HISTORY_SPACING
-    if len(history) > max_history:
-        del history[0: len(history) - max_history]
+    moving = (dx != 0 or vy != 0)
 
     # Si cae fuera de la pantalla
     if dragon.top > HEIGHT:
