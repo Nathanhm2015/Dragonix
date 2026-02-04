@@ -280,24 +280,11 @@ def show_message(text, duration_ms=500, font_size=50, bg_color=NEGRO, text_color
             pass
     return None
 while running:
+    # Procesar eventos
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            sys.exit()
-
-    keys = pygame.key.get_pressed()
-
-    # Movimiento horizontal con flechas
-    dx = 0
-    if keys[pygame.K_RIGHT]:
-        dx = vel
-    if keys[pygame.K_LEFT]:
-        dx = -vel
-
-    # Salto (solo si está en el suelo)
-    if (keys[pygame.K_UP] or keys[pygame.K_SPACE]) and on_ground:
             running = False
             break
-        # Actualizar estado del teclado por eventos para compatibilidad con entornos
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RIGHT:
                 keyboard.right = True
@@ -324,12 +311,12 @@ while running:
     # Calcular dx usando el estado `keyboard` (forzar int para evitar tipos raros)
     dx = ((1 if keyboard.right else 0) - (1 if keyboard.left else 0)) * vel
 
-    # salto (solo si está en el suelo)
+    # Salto (solo si está en el suelo)
     if (keyboard.up or keyboard.space) and on_ground:
         vy = -JUMP_STRENGTH
 
     # Si se mantiene abajo en el aire, caer más rápido
-    if keys[pygame.K_DOWN] and not on_ground:
+    if keyboard.down and not on_ground:
         vy += GRAVITY * 3
 
     # Aplicar gravedad y limitar velocidad de caída
